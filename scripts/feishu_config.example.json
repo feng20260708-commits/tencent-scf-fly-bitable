@@ -1,0 +1,6 @@
+{
+  "app_id": "替换为飞书自建应用 App ID（形如 cli_xxxxxxxx）",
+  "app_secret": "替换为飞书自建应用 App Secret",
+  "app_token": "替换为多维表格 app_token（表格链接 base/ 后面的部分）",
+  "table_id": "替换为数据表 table_id（表格链接 ?table= 后面的部分）"
+}
