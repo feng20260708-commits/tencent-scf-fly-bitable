@@ -39,7 +39,8 @@ node index.js          # 启动本地服务，端口 8080
 > 详见 SKILL.md 的「SCF Web 函数 5 大坑」，必须全对。
 
 1. 腾讯云 SCF 控制台 → 新建 → **Web 函数**（非事件函数）→ Node.js 18。
-2. 把 `scripts/` 下三个文件打 zip：`index.js` + `feishu_config.json` + `scf_bootstrap`。
+2. 把 `scripts/` 下文件打 zip：`index.js` + `feishu_config.json` + `scf_bootstrap.sh`。
+   - ⚠️ SCF 只认**无扩展名**的 `scf_bootstrap` 作为启动文件，所以进部署包前把 `scf_bootstrap.sh` **改名去掉 `.sh`**（内容不变）。
 3. 上传 zip → 端口填 **9000** → 部署。
 4. 复制函数**公网 HTTPS 地址**。
 5. 前端 `survey-template.html` 的 `API_BASE` 换成该地址，部署前端到 CloudStudio/COS 即可。
@@ -54,5 +55,6 @@ node index.js          # 启动本地服务，端口 8080
 本 skill 是「装完即跑」的完整骨架。分享方式任选其一：
 
 - **直发 zip**：把整个 `tencent-scf-fly-bitable/` 目录打包发给对方，对方解压到自己的 `~/.workbuddy/skills/` 即可。
+- **SkillHub 安装**：在 SkillHub 搜 `tencent-scf-fly-bitable`（或「腾讯云SCF飞书多维表格部署」），一键安装。
 - **GitHub 安装**：推到 GitHub 仓库，对方用 WorkBuddy 的「从 GitHub 安装技能」一键装。
 - 对方只需按上面「一~四」用自己的飞书应用 + SCF 部署即可，**流程与代码零改写**。

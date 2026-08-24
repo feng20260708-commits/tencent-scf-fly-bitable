@@ -42,13 +42,13 @@ agent_created: true
 核心 4 块：`config`（凭证，配置文件优先）、`getTenantToken()`（2h缓存提前1min刷新）、`buildFields()`（JSON→飞书字段）、`main_handler`（SCF入口）+ `writeRecordToBitable()`。
 
 **⚠️ SCF Web 函数部署 5 大坑（踩过，必须全对）：**
-1. 缺 `scf_bootstrap` 启动文件 → `exec format error`
+1. 缺 `scf_bootstrap` 启动文件（SkillHub/zip 里是 `scf_bootstrap.sh`，**进部署包前改名去掉 `.sh`**）→ `exec format error`
 2. 启动命令必须用**绝对路径**：Node18=`/var/lang/node18/bin/node`
 3. 监听端口必须 **9000** 且地址 **0.0.0.0**（非8080）
 4. 入口函数名必须 `main_handler`（控制台执行方法 index.main_handler）
 5. 凭证用**配置文件优先、环境变量兜底**（本机残留的旧 FEISHU_APP_ID 会污染环境变量，必须用 zip 内 feishu_config.json）
 
-`scf_bootstrap` 内容（zip内，权限755，LF换行）：
+`scf_bootstrap` 内容（SkillHub/zip 里文件名为 `scf_bootstrap.sh`，**部署时改名去掉 `.sh` 成 `scf_bootstrap`**，权限755，LF换行）：
 ```bash
 #!/bin/bash
 export PORT=9000
@@ -72,7 +72,7 @@ CORS 在代码里返回即可（`Access-Control-Allow-Origin: *`），**控制�
 样式交互不动，只加采集+fetch+反馈三段。
 
 ## 阶段 5：打包部署
-- zip 含 `index.js` + `feishu_config.json`（密钥）+ `scf_bootstrap`（755）
+- zip 含 `index.js` + `feishu_config.json`（密钥）+ `scf_bootstrap.sh` → **改名 `scf_bootstrap`（去掉 `.sh`，755）**
 - 腾讯云 SCF 控制台 → 新建 → **Web 函数**（不是事件函数，事件函数的API网关触发常灰着）→ Node.js 16/18 → 上传zip → 端口9000 → 部署
 - 函数URL → 复制**公网HTTPS**地址
 - 问卷静态页部署到 CloudStudio/COS → 前端 API_BASE 换成云函数地址
@@ -105,10 +105,10 @@ if (payload.phone && !await hasReceived(payload.phone)) await grantCoupon(payloa
 本 skill 已内置可直接部署的骨架，无需外部文件：
 
 - `scripts/index.js` —— 通用后端（数据驱动 **FIELD_MAP**，改字段映射即适配新问卷，零依赖兼容 SCF）
-- `scripts/scf_bootstrap` —— Web 函数启动文件（PORT=9000 + 绝对 node 路径）
+- `scripts/scf_bootstrap.sh` —— Web 函数启动文件（PORT=9000 + 绝对 node 路径；**部署时改名去掉 `.sh` 成 `scf_bootstrap`**）
 - `scripts/feishu_config.example.json` —— 脱敏配置样例（复制成 `feishu_config.json` 填 4 个值）
 - `scripts/survey-template.html` —— 前端采集模板（`collectData()` + `fetch` 提交 + 手机号正则示例）
 - `README.md` —— 5 分钟快速开始 + 字段配置 + 部署 + 分享
 
 **复刻路径**：同事装上本 skill → 按 README「一~四」用自己的飞书应用 + SCF 部署 → 流程与代码零改写即可运行。
-分享方式：① 打包整个目录发对方解压到 `~/.workbuddy/skills/`；② 推 GitHub 让对方用「从 GitHub 安装技能」一键装。
+分享方式：① 打包整个目录发对方解压到 `~/.workbuddy/skills/`；② SkillHub 搜 `tencent-scf-fly-bitable` 一键装；③ 推 GitHub 让对方用「从 GitHub 安装技能」一键装。

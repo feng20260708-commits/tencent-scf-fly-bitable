@@ -6,7 +6,7 @@
  *  1. 复制 feishu_config.example.json → feishu_config.json，填入你的 4 个值
  *  2. 在下方 FIELD_MAP 按「问卷字段映射表」配置你的字段
  *  3. 本地联调：node index.js  （端口 8080，前端填 http://localhost:8080）
- *  4. 部署：连同 scf_bootstrap 一起打包 zip 上传到 SCF Web 函数（端口 9000）
+ *  4. 部署：连同 scf_bootstrap.sh 一起打包 zip 上传到 SCF Web 函数（端口 9000）；注意部署包里要把 scf_bootstrap.sh 改名成 scf_bootstrap（去扩展名）
  *
  * 前端把整份表单 POST 到 /api/submit，body 是 JSON（字段名 = payload key）
  */
