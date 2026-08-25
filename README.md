@@ -6,11 +6,16 @@
 
 1. 打开 [open.feishu.cn](https://open.feishu.cn) → 创建**企业自建应用**（独立应用，权限最小化）。
 2. 「凭证与基础信息」复制 **App ID** + **App Secret**。
-3. 「权限管理」搜"多维表格" → 勾 `bitable:app` + `bitable:record` 读写。
+3. 「权限管理」搜"多维表格" → 勾 `bitable:app` + `bitable:record` 读写；再搜"权限设置" → 勾 `docs:permission.setting:write_only`（**建表后自动授权你可编辑，v1.1.0 新增，必开**）。
 4. 「版本管理与发布」→ 创建版本 → 申请发布 → **管理员审核通过**（不发布权限不生效）。
-5. 飞书客户端「多维表格」→ 新建空表 → 改名 → 复制链接。
-   - ⚠️ API 创建的表不在"云文档"，在独立"多维表格"应用里；最稳是你**手动建空表**。
-   - 从链接解析：`app_token` = `base/xxx` 的 `xxx`；`table_id` = `?table=yyy` 的 `yyy`。
+5. **一键建表（推荐，自动授权你可编辑）**：
+   ```bash
+   cd <skill目录>/scripts
+   cp feishu_config.example.json feishu_config.json   # 填 APP_ID / APP_SECRET
+   node create_bitable.js --name "你的问卷名"          # 可加 --fields "姓名:text,手机号:phone"
+   ```
+   脚本输出 `app_token`/`table_id`/链接，并自动设「组织内获得链接的人可编辑」，**刷新飞书即可编辑**，无需手动处理所有权。
+   想完全手动建表也行：飞书客户端「多维表格」→ 新建空表 → 改名 → 复制链接（`app_token`=`base/xxx` 的 `xxx`、`table_id`=`?table=yyy` 的 `yyy`），但**建完必须手动把链接分享设为"组织内可编辑"**，否则你只有阅读权。
 
 记下 4 个值：**APP_ID / APP_SECRET / APP_TOKEN / TABLE_ID**。
 
@@ -39,7 +44,7 @@ node index.js          # 启动本地服务，端口 8080
 > 详见 SKILL.md 的「SCF Web 函数 5 大坑」，必须全对。
 
 1. 腾讯云 SCF 控制台 → 新建 → **Web 函数**（非事件函数）→ Node.js 18。
-2. 把 `scripts/` 下文件打 zip：`index.js` + `feishu_config.json` + `scf_bootstrap.sh`。
+2. 把 `scripts/` 下文件打 zip：`index.js` + `feishu_config.json` + `scf_bootstrap.sh` + `create_bitable.js`。
    - ⚠️ SCF 只认**无扩展名**的 `scf_bootstrap` 作为启动文件，所以进部署包前把 `scf_bootstrap.sh` **改名去掉 `.sh`**（内容不变）。
 3. 上传 zip → 端口填 **9000** → 部署。
 4. 复制函数**公网 HTTPS 地址**。
@@ -47,7 +52,7 @@ node index.js          # 启动本地服务，端口 8080
 
 ## 五、常见变体
 
-- **换一套问卷**：只改前端 HTML 内容 + FIELD_MAP + 飞书表列，管道层全复用。
+- **换行业 / 换一套问卷**：只改前端 HTML 内容 + FIELD_MAP + 飞书表列，管道层全复用。换行业要换信息留存表时，直接再跑 `node create_bitable.js --name "新行业问卷名"` 自动建新表并授权可编辑，无需手动建表。
 - **验证手机号送优惠券**：在 `handleSubmit` 写主表成功后加发券逻辑（查重 + 落发券记录表 / 调你的券系统 API / 飞书通知），前端加手机号框 + 正则 `/^1[3-9]\d{9}$/`，主表加「手机号/是否已发券/发券时间」列。详见 SKILL.md 扩展 B。
 
 ## 六、分享给同事（复刻）

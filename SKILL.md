@@ -2,8 +2,8 @@
 name: 腾讯云SCF飞书多维表格部署
 slug: tencent-scf-fly-bitable
 displayName: 腾讯云SCF飞书多维表格部署
-version: 1.0.0
-description: 把网页问卷/活动页的提交数据写入飞书多维表格的标准部署工作流。当用户要做"表单/问卷/活动页 → 服务器接收 → 飞书多维表格实时落库 → 团队在飞书跟进"这类需求时使用，尤其适用于换问卷形式、验证手机号送优惠券等变体。涵盖飞书应用申请、SCF Web函数部署（含5大坑）、零依赖Node后端、前端fetch提交、联调验证全链路。
+version: 1.1.0
+description: 把网页问卷/活动页的提交数据写入飞书多维表格的标准部署工作流。当用户要做"表单/问卷/活动页 → 服务器接收 → 飞书多维表格实时落库 → 团队在飞书跟进"这类需求时使用，尤其适用于换问卷形式、验证手机号送优惠券等变体。涵盖飞书应用申请、SCF Web函数部署（含5大坑）、零依赖Node后端、前端fetch提交、联调验证全链路。v1.1.0 起内置「自动建表 + 自动授权所有者可编辑」脚本，彻底解决"应用建的表归应用所有、个人无法编辑"的坑。
 agent_created: true
 ---
 
@@ -23,6 +23,12 @@ agent_created: true
 ```
 密钥只在服务端，网页看不到。
 
+## ⚠️ 核心认知：应用建的表归「应用」所有，不归你个人
+飞书里**企业自建应用是一个独立主体（机器人账号）**。用应用身份（`tenant_access_token`）建的多维表格，所有权在**应用**名下，不在你（应用所有者）个人名下。
+- 后果：你打开这张表只是"组织内拿到链接的访客"，默认只读；点「申请编辑权限」申请会发给机器人，机器人没有审批入口 → **永远收不到通知**。
+- 解决（本 skill v1.1.0 已自动化）：建表后立刻把表设为「组织内获得链接的人可编辑」，你刷新飞书即可编辑。这一步由 `create_bitable.js` 在建表时自动完成。
+- 更私密方案（只你自己能编辑、同事不能）：把权限换成 `bitable:bitable` + 在 `create_bitable.js` 里把 `setOrgEditable()` 改为"把你个人 open_id 加为 editable 协作者"（需应用有通讯录权限）。内部问卷表一般无需这么严。
+
 ## 阶段 0-1：问卷设计 + 字段映射表
 - 每题动手前定好「对应飞书哪个字段、什么类型」
 - 映射表决定后端 buildFields 和飞书建表
@@ -32,10 +38,21 @@ agent_created: true
 ## 阶段 2：飞书准备（一次性）
 1. `open.feishu.cn` → 创建企业自建应用（独立应用，别复用个人CLI，权限最小化）
 2. 凭证与基础信息 → 复制 App ID + App Secret
-3. 权限管理 → 搜"多维表格" → 勾 `bitable:app` + `bitable:record` 读写
+3. 权限管理 → 勾选以下三项：
+   - `bitable:app`（建多维表格）
+   - `bitable:record`（读写记录）
+   - `docs:permission.setting:write_only`（**建表后自动授权你可编辑，本 skill v1.1.0 新增**）
 4. 版本管理与发布 → 创建版本 → 申请发布 → **管理员审核通过（不发布权限不生效）**
-5. 建多维表格：飞书客户端「多维表格」→ 新建空表 → 改名 → 复制链接（**API创建的表不显示在"云文档"，在独立"多维表格"应用里**，最稳是你手动建空表）
-6. 从链接解析 `app_token`（base/后）+ `table_id`（?table=后）
+5. **一键建表（推荐）**：用本 skill 自带脚本，自动建表 + 自动授权你可编辑：
+   ```bash
+   cd <skill目录>/scripts
+   cp feishu_config.example.json feishu_config.json   # 填 APP_ID / APP_SECRET
+   node create_bitable.js --name "2026汽车潜客问卷"
+   # 可加 --fields "姓名:text,手机号:phone,意向:single" 快速建列
+   ```
+   脚本输出 `app_token` / `table_id` / 链接，并自动 PATCH 设「组织内获得链接的人可编辑」。**你刷新飞书即可编辑。**
+   - 想完全手动建表也行：飞书客户端「多维表格」→ 新建空表 → 改名 → 复制链接（API 创建的表在独立"多维表格"应用里）。但**手动建完后必须自己把链接分享设为"组织内可编辑"**，否则你只有阅读权（这就是本 skill 要消灭的坑）。
+6. 从脚本输出（或链接）解析 `app_token`（base/后）+ `table_id`（?table=后），填进 `feishu_config.json`。
 - 交付 4 个值：APP_ID / APP_SECRET / APP_TOKEN / TABLE_ID
 
 ## 阶段 3：后端（Node.js 零依赖，兼容 SCF）
@@ -72,7 +89,7 @@ CORS 在代码里返回即可（`Access-Control-Allow-Origin: *`），**控制�
 样式交互不动，只加采集+fetch+反馈三段。
 
 ## 阶段 5：打包部署
-- zip 含 `index.js` + `feishu_config.json`（密钥）+ `scf_bootstrap.sh` → **改名 `scf_bootstrap`（去掉 `.sh`，755）**
+- zip 含 `index.js` + `feishu_config.json`（密钥）+ `scf_bootstrap.sh` + `create_bitable.js` → **改名 `scf_bootstrap`（去掉 `.sh`，755）**
 - 腾讯云 SCF 控制台 → 新建 → **Web 函数**（不是事件函数，事件函数的API网关触发常灰着）→ Node.js 16/18 → 上传zip → 端口9000 → 部署
 - 函数URL → 复制**公网HTTPS**地址
 - 问卷静态页部署到 CloudStudio/COS → 前端 API_BASE 换成云函数地址
@@ -83,8 +100,8 @@ CORS 在代码里返回即可（`Access-Control-Allow-Origin: *`），**控制�
 - 飞书表查记录字段完整（多选数组/数字/JSON都在）
 - 清理测试数据
 
-## 扩展 A：换问卷
-只改内容层：① 问卷HTML（保持name/data-field+collectData）② 重画字段映射表 ③ 改 buildFields 字段名（飞书表增删列用API或手动）。管道层全复用。
+## 扩展 A：换问卷 / 换行业
+只改内容层：① 问卷HTML（保持name/data-field+collectData）② 重画字段映射表 ③ 改 buildFields 字段名（飞书表增删列用API或手动）。**换行业要换信息留存表时，直接再跑一次 `create_bitable.js --name "新行业问卷名"` 即可自动建新表并授权可编辑**，管道层全复用，不用手动建表。
 
 ## 扩展 B：验证手机号送优惠券
 后端加 3 块（管道不动）：
@@ -105,6 +122,7 @@ if (payload.phone && !await hasReceived(payload.phone)) await grantCoupon(payloa
 本 skill 已内置可直接部署的骨架，无需外部文件：
 
 - `scripts/index.js` —— 通用后端（数据驱动 **FIELD_MAP**，改字段映射即适配新问卷，零依赖兼容 SCF）
+- `scripts/create_bitable.js` —— **v1.1.0 新增**：自动建多维表格 + 自动授权「组织内可编辑」。解决"应用建的表你无法编辑"的坑（详见上方「核心认知」）。用法 `node create_bitable.js --name "问卷名" [--fields "姓名:text,手机号:phone"]`
 - `scripts/scf_bootstrap.sh` —— Web 函数启动文件（PORT=9000 + 绝对 node 路径；**部署时改名去掉 `.sh` 成 `scf_bootstrap`**）
 - `scripts/feishu_config.example.json` —— 脱敏配置样例（复制成 `feishu_config.json` 填 4 个值）
 - `scripts/survey-template.html` —— 前端采集模板（`collectData()` + `fetch` 提交 + 手机号正则示例）
